@@ -1,7 +1,7 @@
 /*
  * PCM frame synchronizer
  */
-package zdxrlib
+package mylib
 
 import spinal.core._
 import spinal.lib._
@@ -9,6 +9,7 @@ import spinal.lib.fsm._
 
 class pcm extends Component {
   val io = new Bundle {
+//    val sysClk = in Bool()
     val sysRst = in Bool()
 
     val bitSync = in Bool()
@@ -46,20 +47,21 @@ class fs_mk extends Component {
     val pcmData = out UInt (8 bits)
   }
 
-  val synCode = B"16'xEB90"
-  val frameLength = 256
+  val synCode = B"24'x??????"
+  val frameLength = 256 * 8
   val antiCode = ~synCode
+  val codeLength = synCode.getWidth
 
   //pcm stream put into shift register
-  val shiftReg = Vec(Reg(Bool()), 16)
+  val shiftReg = Vec(Reg(Bool()), codeLength)
   shiftReg(0) := io.nrzl
-  for (i <- 1 to 15) {
+  for (i <- 1 to codeLength - 1) {
     shiftReg(i) := shiftReg(i - 1)
   }
 
-  //frame data stream "corralate" with synchronize code: eb90
-  val corrVal = Vec(UInt(5 bits), 16)
-  for (i <- 0 to 15) {
+  //frame data stream "corralate" with synchronize code
+  val corrVal = Vec(UInt(5 bits), codeLength)
+  for (i <- 0 to codeLength - 1) {
     when (shiftReg(i) ^ synCode(i)) {
       corrVal(i) := U"00001"
     } otherwise {
@@ -69,14 +71,14 @@ class fs_mk extends Component {
 
   val corrSum: UInt = corrVal.reduceBalancedTree(_ + _)
 
-  //"eb90" or "146f" or just one difficult
+  //allow one difficult
   io.frameSync := corrSum === 0
-  io.isAnti := corrSum === 16
+  io.isAnti := corrSum === codeLength
   io.nearCode := corrSum === 1
 
   //frame synchronizer with 3-state machine: search, check, synchronize
   val fsm = new StateMachine {
-    val frameCounter = Reg(UInt(8 bits)) init (0)
+    val frameCounter = Reg(UInt(13 bits)) init (0)
     val missCounter = Reg(UInt(2 bits)) init (0)
     val frameEnd = Bool()
     val findCode = Bool()
