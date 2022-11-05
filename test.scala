@@ -17,19 +17,19 @@ object MyPCMSim {
 
       //val modelState = 0
       var idx = 0
-      //synchronize code "??????"
-      var code = Array(1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0 , 0)
-      val sfl = 256 * 8
-      val tfl = sfl * 64
+      //synchronize pattern
+      var pattern = Array(1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0 , 0)
+      val minor = 256 * 8
+      val major = minor * 64
 
       for (idx <- 0 to 999999){
-        var x = idx % tfl
-        var y = idx % sfl
-        if (x >= (tfl - 24) && x <= (tfl - 1)) {
-          dut.io.nrzl #= code(x - (tfl - 24)) == 0
+        var x = idx % major
+        var y = idx % minor
+        if (x >= (major - 24) && x <= (major - 1)) {
+          dut.io.nrzl #= pattern(x - (major - 24)) == 0
         }
-        else if (y >= (sfl - 24) && y <= (sfl - 1)) {
-          dut.io.nrzl #= code(y - (sfl - 24)) == 1
+        else if (y >= (minor - 24) && y <= (minor - 1)) {
+          dut.io.nrzl #= pattern(y - (minor - 24)) == 1
         }
         else {
           //Drive the dut inputs with random values
@@ -40,6 +40,7 @@ object MyPCMSim {
         dut.clockDomain.waitFallingEdge()
 
       }
+
     }
   }
 }
