@@ -11,26 +11,25 @@ import spinal.core.sim._
 class my_pcm extends Component {
   val io = new Bundle {
     val sysRst = in Bool()
-
     val bitSync = in Bool()
     val nrzl = in Bool()
     val frameSync = out Bool()
     val wordSync = out Bool()
     val pcmData = out UInt (8 bits)
+  }
 
-    val sysCD = ClockDomain(bitSync, sysRst, config = ClockDomainConfig(
+    val sysCD = ClockDomain(io.bitSync, io.sysRst, config = ClockDomainConfig(
       clockEdge = RISING,
       resetKind = ASYNC,
       resetActiveLevel = LOW))
 
     val pcm_mk = sysCD(new fs_mk)
 
-    pcm_mk.io.nrzl <> nrzl
-    frameSync <> pcm_mk.io.frameSync
-    wordSync <> pcm_mk.io.wordSync
-    pcmData <> pcm_mk.io.pcmData
+    pcm_mk.io.nrzl <> io.nrzl
+    io.frameSync <> pcm_mk.io.frameSync
+    io.wordSync <> pcm_mk.io.wordSync
+    io.pcmData <> pcm_mk.io.pcmData
 
-  }
 }
 
 class fs_mk extends Component {
@@ -39,7 +38,6 @@ class fs_mk extends Component {
     val frameSync = out Bool()
     val wordSync = out Bool()
     val pcmData = out UInt (8 bits)
-
   }
 
   val syncPatt = B"24'x??????"
@@ -67,29 +65,26 @@ class fs_mk extends Component {
   val corrSum: UInt = corrVal.reduceBalancedTree(_ + _)
 
   //allow one difficult
-  val findFit = Bool()
-  val findAnti = Bool()
-  val findOnerr = Bool()
-  
-  findFit := corrSum === 0
-  findAnti := corrSum === pattLength
-  findOnerr := corrSum === 1
+  val findFit = corrSum === 0
+  val findAnti = corrSum === pattLength
+  val findOnerr = corrSum === 1
+  val findPatt = findFit | findAnti | findOnerr
+
+  val minorCounter = Reg(UInt(13 bits)) init (0)
+  val minorTail = minorCounter >= (minorLength - 1)
+  val whenSync = Bool()
 
   //frame synchronizer with 3-state machine: search, check, synchronize
   val fsm = new StateMachine {
-    val minorCounter = Reg(UInt(13 bits)) init (0)
+    whenSync := False
     val missCounter = Reg(UInt(2 bits)) init (0)
-    val minorTail = Bool()
-    val findPatt = Bool()
-
-    minorTail := minorCounter >= (minorLength - 1)
-    findPatt := findFit | findAnti | findOnerr
 
     //searching pattern
     val stateSearch: State = new State with EntryPoint {
       onEntry(minorCounter := 0)
       whenIsActive {
         minorCounter := minorCounter + 1
+        whenSync := False
         when(findFit) {
           goto(stateCheck)
         }
@@ -101,6 +96,7 @@ class fs_mk extends Component {
       onEntry(minorCounter := 0)
       whenIsActive {
         minorCounter := minorCounter + 1
+        whenSync := False
         when(findFit & minorTail) {
           goto(stateSync)
         }
@@ -115,6 +111,7 @@ class fs_mk extends Component {
       onEntry(minorCounter := 0)
       whenIsActive {
         minorCounter := minorCounter + 1
+        whenSync := True
         when(minorTail) {
           minorCounter := 0
         }
@@ -125,14 +122,11 @@ class fs_mk extends Component {
           missCounter := missCounter + 1
         }
         when(missCounter >= 2) {
-          missCounter := 0
           goto(stateSearch)
         }
       }
+      onExit(missCounter := 0)
     }
-
-    io.frameSync := RegNext(findPatt & minorTail)
-    io.wordSync := minorCounter % 8 === 0
   }
 
   //frame data buffer
@@ -141,14 +135,17 @@ class fs_mk extends Component {
     shiftByte(i) := shiftReg(i + (pattLength - 8))
   }
 
-  io.pcmData := RegNextWhen(shiftByte, io.wordSync)
+  val bit2byte = minorCounter % 8 === 0
+  io.pcmData := RegNextWhen(shiftByte, bit2byte)
+  io.frameSync := RegNext(findPatt & minorTail)
+  io.wordSync := whenSync & Delay(bit2byte, 2)
 
 }
 
 //Generate the MyTopLevel's Verilog
 object MyPCMVerilog {
   def main(args: Array[String]) {
-    SpinalVerilog(new my_pcm).printPruned()
+    SpinalVerilog(new my_pcm)
   }
 }
 
