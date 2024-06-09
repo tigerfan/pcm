@@ -5,7 +5,7 @@ import random
 
 class SimplifiedPLL(Elaboratable):
     def __init__(self, init_freq, domain_freq):
-        self.init_freq = init_freq  # PCM码流的码速率，约2.26Mbps
+        self.init_freq = init_freq  # PCM码流的码速率
         self.domain_freq = domain_freq  # 系统时钟频率，100MHz
 
         self.nrzl_in = Signal()  # 输入数据
@@ -90,7 +90,7 @@ class SimplifiedPLL(Elaboratable):
 
 if __name__ == "__main__":
     # --- 测试代码 ---
-    dut = SimplifiedPLL(init_freq=2_260_000, domain_freq=100_000_000)
+    dut = SimplifiedPLL(init_freq=2_345_678, domain_freq=100_000_000)
     sim = Simulator(dut)
     sim.add_clock(1 / 100_000_000)  # 100MHz 时钟
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
         Delay(200)
         for i in range(10000):  # 增加仿真周期数以观察更多结果
             yield dut.nrzl_in.eq(random.randint(0, 1))
-            yield Delay(1 / 2260000)  # 100MHz时钟周期为10ns
+            yield Delay(1 / 2345678)
 
 
     sim.add_sync_process(process)
