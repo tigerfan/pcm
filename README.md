@@ -1,4 +1,6 @@
-**加入简单的nco和pll
+**用amaranth重构了帧同步器，转换工作是gpt4o干的
+
+**加入简单的nco和pll，代码都是gpt4o写的
 
 **加入IRIG-B码信号源，amaranth hdl实现，gpt4o辅助
 
